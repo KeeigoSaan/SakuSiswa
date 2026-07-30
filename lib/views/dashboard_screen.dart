@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../models/transaksi.dart';
+import '../services/storage_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,46 +11,46 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _totalSaldo = 0;
-  List<Map<String, dynamic>> _riwayatPengeluaran = [];
+  List<Transaksi> _riwayatPengeluaran = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _muatDataLokal();
+    _muatDataAwal();
   }
 
-  Future<void> _muatDataLokal() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> _muatDataAwal() async {
+    final saldo = await StorageService.muatSaldo();
+    final riwayat = await StorageService.muatRiwayat();
+
+    if (!mounted) return;
     setState(() {
-      _totalSaldo = prefs.getInt('total_saldo') ?? 0;
-      List<String>? dataStringList = prefs.getStringList('riwayat');
-      if (dataStringList != null) {
-        _riwayatPengeluaran = dataStringList
-            .map((item) => jsonDecode(item) as Map<String, dynamic>)
-            .toList();
-      }
+      _totalSaldo = saldo;
+      _riwayatPengeluaran = riwayat;
+      _isLoading = false;
     });
   }
 
-  Future<void> _simpanDataLokal() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('total_saldo', _totalSaldo);
-    List<String> dataStringList =
-        _riwayatPengeluaran.map((item) => jsonEncode(item)).toList();
-    await prefs.setStringList('riwayat', dataStringList);
+  Future<void> _isiUangSaku() async {
+    final saldoBaru = await StorageService.tambahSaldo(50000);
+    if (!mounted) return;
+    setState(() => _totalSaldo = saldoBaru);
   }
 
-  void _tambahPengeluaran(String judul, int nominal) {
-    if (nominal <= 0 || judul.isEmpty) return;
+  Future<void> _tambahPengeluaran(String judul, int nominal) async {
+    if (judul.isEmpty || nominal <= 0) return;
+
+    final hasil = await StorageService.tambahPengeluaran(
+      judul: judul,
+      nominal: nominal,
+    );
+
+    if (!mounted) return;
     setState(() {
-      _totalSaldo -= nominal;
-      _riwayatPengeluaran.insert(0, {
-        'judul': judul,
-        'nominal': nominal,
-        'tanggal': DateTime.now().toString().substring(0, 10),
-      });
+      _totalSaldo = hasil.saldo;
+      _riwayatPengeluaran = hasil.riwayat;
     });
-    _simpanDataLokal();
   }
 
   void _tampilkanModalInput() {
@@ -97,10 +97,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  final judul = judulController.text;
+                  final judul = judulController.text.trim();
                   final nominal = int.tryParse(nominalController.text) ?? 0;
-                  _tambahPengeluaran(judul, nominal);
                   Navigator.pop(ctx);
+                  _tambahPengeluaran(judul, nominal);
                 },
                 child: const Text('Simpan Pengeluaran'),
               ),
@@ -113,6 +113,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('SakuSiswa Dashboard'),
@@ -140,10 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextButton.icon(
-                      onPressed: () {
-                        setState(() => _totalSaldo += 50000);
-                        _simpanDataLokal();
-                      },
+                      onPressed: _isiUangSaku,
                       icon: const Icon(Icons.add_card, color: Colors.white),
                       label: const Text('Isi Uang Saku (+Rp50.000)',
                           style: TextStyle(color: Colors.white)),
@@ -172,10 +175,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             leading: const CircleAvatar(
                               child: Icon(Icons.shopping_bag_outlined),
                             ),
-                            title: Text(item['judul']),
-                            subtitle: Text(item['tanggal']),
+                            title: Text(item.judul),
+                            subtitle: Text(item.tanggal),
                             trailing: Text(
-                              '- Rp ${item['nominal']}',
+                              '- Rp ${item.nominal}',
                               style: const TextStyle(
                                   color: Colors.red, fontWeight: FontWeight.bold),
                             ),
