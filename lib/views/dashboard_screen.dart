@@ -20,7 +20,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _muatDataAwal();
   }
 
-  // Ambil data tersimpan (saldo & riwayat) saat aplikasi pertama dibuka.
   Future<void> _muatDataAwal() async {
     final saldo = await StorageService.muatSaldo();
     final riwayat = await StorageService.muatRiwayat();
@@ -33,14 +32,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  // Tambah uang saku (+Rp50.000), lalu update UI dari hasil StorageService.
   Future<void> _isiUangSaku() async {
     final saldoBaru = await StorageService.tambahSaldo(50000);
     if (!mounted) return;
     setState(() => _totalSaldo = saldoBaru);
   }
 
-  // Catat pengeluaran baru, lalu update UI dari hasil StorageService.
   Future<void> _tambahPengeluaran(String judul, int nominal) async {
     if (judul.isEmpty || nominal <= 0) return;
 
@@ -56,7 +53,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  // Modal Bottom Sheet form input (UI Modern)
   void _tampilkanModalInput() {
     final judulController = TextEditingController();
     final nominalController = TextEditingController();
@@ -132,7 +128,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // CARD UI STANDAR INDUSTRI
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -167,8 +162,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 10),
-
-            // DYNAMIC LISTVIEW
             Expanded(
               child: _riwayatPengeluaran.isEmpty
                   ? const Center(child: Text('Belum ada pengeluaran hari ini. Hemat banget! 🎉'))
